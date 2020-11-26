@@ -49,6 +49,7 @@ func initConfig() {
 	fs.String("config-path", "", "config dir path")
 	fs.String("config", "config.yaml", "config file name")
 	// timeouts
+	fs.Duration("http-server-timeout", 30*time.Second, "server read and write timeout duration")
 	fs.Duration("http-server-shutdown-timeout", 5*time.Second, "server graceful shutdown timeout duration")
 	//logging
 	fs.String("level", "info", "log level debug, info, warn, error, flat or panic")

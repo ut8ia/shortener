@@ -6,10 +6,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
+	"github.com/swaggo/swag"
 	"go.uber.org/zap"
 	"net/http"
 	"sync/atomic"
 	"time"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type Config struct {
@@ -17,6 +19,7 @@ type Config struct {
 	Port        string `mapstructure: "port"`
 	PortMetrics int    `mapstructure:"port-metrics"`
 	// lifecycle timings
+	HttpServerTimeout         time.Duration `mapstructure:"http-server-timeout"`
 	HttpServerShutdownTimeout time.Duration `mapstructure:"http-server-shutdown-timeout"`
 	// k8s markers
 	Unhealthy bool `mapstructure:"unhealthy"`
@@ -27,7 +30,13 @@ type Server struct {
 	router *mux.Router
 	logger *zap.Logger
 	config *Config
+	handler http.Handler
 }
+
+var (
+	healthy int32
+	ready   int32
+)
 
 func NewServer(config *Config, logger *zap.Logger) (*Server, error) {
 	srv := &Server{
@@ -43,6 +52,8 @@ func (s *Server) ListenAndServe(stopCh <-chan struct{}) {
 
 	s.registerHandlers()
 	s.registerMiddlewares()
+
+	s.handler = s.router
 
 	// create the http server
 	srv := s.startServer()
@@ -101,32 +112,9 @@ func (s *Server) startMetricsServer() {
 func (s *Server) registerHandlers() {
 	s.router.Handle("/metrics", promhttp.Handler())
 	s.router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
-	s.router.HandleFunc("/", s.indexHandler).HeadersRegexp("User-Agent", "^Mozilla.*").Methods("GET")
-	s.router.HandleFunc("/", s.infoHandler).Methods("GET")
 	s.router.HandleFunc("/version", s.versionHandler).Methods("GET")
-	s.router.HandleFunc("/echo", s.echoHandler).Methods("POST")
-	s.router.HandleFunc("/env", s.envHandler).Methods("GET", "POST")
-	s.router.HandleFunc("/headers", s.echoHeadersHandler).Methods("GET", "POST")
-	s.router.HandleFunc("/delay/{wait:[0-9]+}", s.delayHandler).Methods("GET").Name("delay")
 	s.router.HandleFunc("/healthz", s.healthzHandler).Methods("GET")
 	s.router.HandleFunc("/readyz", s.readyzHandler).Methods("GET")
-	s.router.HandleFunc("/readyz/enable", s.enableReadyHandler).Methods("POST")
-	s.router.HandleFunc("/readyz/disable", s.disableReadyHandler).Methods("POST")
-	s.router.HandleFunc("/panic", s.panicHandler).Methods("GET")
-	s.router.HandleFunc("/status/{code:[0-9]+}", s.statusHandler).Methods("GET", "POST", "PUT").Name("status")
-	s.router.HandleFunc("/store", s.storeWriteHandler).Methods("POST", "PUT")
-	s.router.HandleFunc("/store/{hash}", s.storeReadHandler).Methods("GET").Name("store")
-	s.router.HandleFunc("/cache/{key}", s.cacheWriteHandler).Methods("POST", "PUT")
-	s.router.HandleFunc("/cache/{key}", s.cacheDeleteHandler).Methods("DELETE")
-	s.router.HandleFunc("/cache/{key}", s.cacheReadHandler).Methods("GET").Name("cache")
-	s.router.HandleFunc("/configs", s.configReadHandler).Methods("GET")
-	s.router.HandleFunc("/token", s.tokenGenerateHandler).Methods("POST")
-	s.router.HandleFunc("/token/validate", s.tokenValidateHandler).Methods("GET")
-	s.router.HandleFunc("/api/info", s.infoHandler).Methods("GET")
-	s.router.HandleFunc("/api/echo", s.echoHandler).Methods("POST")
-	s.router.HandleFunc("/ws/echo", s.echoWsHandler)
-	s.router.HandleFunc("/chunked", s.chunkedHandler)
-	s.router.HandleFunc("/chunked/{wait:[0-9]+}", s.chunkedHandler)
 	s.router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 	))
@@ -148,4 +136,31 @@ func (s *Server) registerMiddlewares() {
 	httpLogger := NewLoggingMiddleware(s.logger)
 	s.router.Use(httpLogger.Handler)
 	s.router.Use(versionMiddleware)
+}
+
+func (s *Server) startServer() *http.Server {
+
+	// determine if the port is specified
+	if s.config.Port == "0" {
+		// move on immediately
+		return nil
+	}
+
+	srv := &http.Server{
+		Addr:         ":" + s.config.Port,
+		WriteTimeout: s.config.HttpServerTimeout,
+		ReadTimeout:  s.config.HttpServerTimeout,
+		IdleTimeout:  2 * s.config.HttpServerTimeout,
+		Handler:      s.handler,
+	}
+
+	// start the server in the background
+	go func() {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			s.logger.Fatal("HTTP server crashed", zap.Error(err))
+		}
+	}()
+
+	// return the server and routine
+	return srv
 }
