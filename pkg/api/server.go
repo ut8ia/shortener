@@ -13,9 +13,9 @@ import (
 )
 
 type Config struct {
-	Hostname                  string        `mapstrcucture: "hostname"`
-	Port                      string        `mapstructure: "port"`
-	PortMetrics               int           `mapstructure:"port-metrics"`
+	Hostname    string `mapstrcucture: "hostname"`
+	Port        string `mapstructure: "port"`
+	PortMetrics int    `mapstructure:"port-metrics"`
 	// lifecycle timings
 	HttpServerShutdownTimeout time.Duration `mapstructure:"http-server-shutdown-timeout"`
 	// k8s markers
