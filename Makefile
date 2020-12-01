@@ -16,7 +16,10 @@ test:
 	go test -v -race ./...
 build:
 	CGO_ENABLED=0 go build -a -o ./bin/app  ./cmd/app/*
-
+image_version:
+	docker build -t $(DOCKER_IMAGE_NAME):$(VERSION) .
+image:
+	docker build -t $(DOCKER_IMAGE_NAME).
 fmt:
 	gofmt -l -s -w ./
 	goimports -l -w ./

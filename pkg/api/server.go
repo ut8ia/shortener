@@ -6,12 +6,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/swaggo/swag"
 	"go.uber.org/zap"
 	"net/http"
 	"sync/atomic"
 	"time"
-	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type Config struct {
@@ -27,9 +27,9 @@ type Config struct {
 }
 
 type Server struct {
-	router *mux.Router
-	logger *zap.Logger
-	config *Config
+	router  *mux.Router
+	logger  *zap.Logger
+	config  *Config
 	handler http.Handler
 }
 
@@ -115,9 +115,6 @@ func (s *Server) registerHandlers() {
 	s.router.HandleFunc("/version", s.versionHandler).Methods("GET")
 	s.router.HandleFunc("/healthz", s.healthzHandler).Methods("GET")
 	s.router.HandleFunc("/readyz", s.readyzHandler).Methods("GET")
-	s.router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"),
-	))
 	s.router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 	))

@@ -1,9 +1,8 @@
 package api
 
 import (
-	"net/http"
-
 	"github.com/ut8ia/shortener/pkg/version"
+	"net/http"
 )
 
 // Version godoc

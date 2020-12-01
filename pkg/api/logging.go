@@ -1,9 +1,8 @@
 package api
 
 import (
-	"net/http"
-
 	"go.uber.org/zap"
+	"net/http"
 )
 
 type LoggingMiddleware struct {

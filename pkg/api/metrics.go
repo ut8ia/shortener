@@ -3,6 +3,8 @@ package api
 import (
 	"bufio"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"net"
 	"net/http"
@@ -10,9 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type PrometheusMiddleware struct {
