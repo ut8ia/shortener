@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -30,6 +31,7 @@ type Server struct {
 	router  *mux.Router
 	logger  *zap.Logger
 	config  *Config
+	pool    *redis.Pool
 	handler http.Handler
 }
 

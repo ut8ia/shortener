@@ -7,9 +7,9 @@ import (
 	"github.com/ut8ia/shortener/pkg/api"
 	"github.com/ut8ia/shortener/pkg/signals"
 	"github.com/ut8ia/shortener/pkg/version"
+	"path/filepath"
+	"strings"
 	"time"
-
-	//"github.com/ut8ia/shortener/pkg/api"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
@@ -27,7 +27,7 @@ func main() {
 	// configure http server
 	var srvCfg api.Config
 	if err := viper.Unmarshal(&srvCfg); err != nil {
-		logger.Panic("failed too config http api")
+		logger.Panic("failed to config http api")
 	}
 
 	logger.Info("Starting http API",
@@ -46,13 +46,16 @@ func initConfig() {
 	fs := pflag.NewFlagSet("default", pflag.ContinueOnError)
 	fs.Int("port", 8000, "HTTP port")
 	fs.Int("port-metrics", 0, "metrics port")
-	fs.String("config-path", "", "config dir path")
-	fs.String("config", "config.yaml", "config file name")
+	fs.String("data-path", "/data", "data local path")
+	fs.String("config-path", "./config", "config dir path")
+	fs.String("config", "config.yml", "config file name")
 	// timeouts
 	fs.Duration("http-server-timeout", 30*time.Second, "server read and write timeout duration")
 	fs.Duration("http-server-shutdown-timeout", 5*time.Second, "server graceful shutdown timeout duration")
 	//logging
 	fs.String("level", "info", "log level debug, info, warn, error, flat or panic")
+	//cache
+	fs.String("cache-server", "", "Redis address in the format <host>:<port>")
 
 	err := fs.Parse(os.Args[1:])
 
@@ -74,6 +77,17 @@ func initConfig() {
 	viper.Set("version", version.VERSION)
 	viper.Set("revision", version.REVISION)
 	viper.AutomaticEnv()
+
+	// load config from file
+	if _, fileErr := os.Stat(filepath.Join(viper.GetString("config-path"), viper.GetString("config"))); fileErr == nil {
+		viper.SetConfigName(strings.Split(viper.GetString("config"), ".")[0])
+		viper.AddConfigPath(viper.GetString("config-path"))
+		if err := viper.ReadInConfig(); err != nil {
+			fmt.Printf("Error reading config file, %v\n", err)
+		}
+	}else{
+		fmt.Printf("Error while open config file, %v\n",fileErr)
+	}
 
 }
 
